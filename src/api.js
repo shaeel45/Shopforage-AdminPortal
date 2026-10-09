@@ -41,8 +41,10 @@ export function loginAdmin(email, password) {
   });
 }
 
-export function fetchProducts() {
-  return request("/products");
+export async function fetchProducts(params = {}) {
+  const search = new URLSearchParams({ all: "true", ...params }).toString();
+  const res = await request(`/products${search ? `?${search}` : ""}`);
+  return Array.isArray(res) ? res : res?.data || [];
 }
 
 export function createProduct(product) {

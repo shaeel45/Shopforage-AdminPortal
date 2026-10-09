@@ -34,6 +34,17 @@ const splitValues = (value) => {
 
 function normalizeProduct(product) {
   const imageURL = product.imageURL || product.image || "";
+  const ratingVal =
+    typeof product.rating === "object" && product.rating !== null
+      ? Number(product.rating.rate ?? product.rating.average ?? 0)
+      : Number(product.rating) || 0;
+  const reviewCount =
+    typeof product.rating === "object" && product.rating !== null
+      ? Number(product.rating.count ?? 0)
+      : Array.isArray(product.review)
+      ? product.review.length
+      : Number(product.reviewCount) || 0;
+
   return {
     ...product,
     id: product.id,
@@ -44,6 +55,10 @@ function normalizeProduct(product) {
     stock: Number(product.stock) || 0,
     colors: splitValues(product.colors),
     sizes: splitValues(product.sizes),
+    images: Array.isArray(product.images) ? product.images : [],
+    details: Array.isArray(product.details) ? product.details : [],
+    rating: ratingVal,
+    reviewCount,
     imageURL,
     image: resolveProductImage(imageURL),
     isNew: Boolean(product.isNew),
@@ -74,11 +89,12 @@ export default function Products() {
     let active = true;
     fetchProducts()
       .then((data) => {
-        if (!Array.isArray(data)) {
+        const list = Array.isArray(data) ? data : data?.data;
+        if (!Array.isArray(list)) {
           throw new Error("The products API returned an invalid response.");
         }
         if (active) {
-          setProducts(data.map(normalizeProduct));
+          setProducts(list.map(normalizeProduct));
           setLoadError("");
         }
       })
@@ -98,10 +114,11 @@ export default function Products() {
     setLoading(true);
     try {
       const data = await fetchProducts();
-      if (!Array.isArray(data)) {
+      const list = Array.isArray(data) ? data : data?.data;
+      if (!Array.isArray(list)) {
         throw new Error("The products API returned an invalid response.");
       }
-      setProducts(data.map(normalizeProduct));
+      setProducts(list.map(normalizeProduct));
       setLoadError("");
     } catch (error) {
       setLoadError(error.message);

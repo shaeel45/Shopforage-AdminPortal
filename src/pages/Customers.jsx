@@ -1,11 +1,40 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Modal from "../components/Modal";
 import Badge from "../components/Badge";
-import { customers, orders } from "../data/adminData";
+import { fetchCustomers } from "../api";
+import { orders } from "../data/adminData";
 
 export default function Customers() {
   const [search, setSearch] = useState("");
   const [viewCustomer, setViewCustomer] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchCustomers()
+      .then((data) => {
+        if (!cancelled) {
+          const normalized = (Array.isArray(data) ? data : []).map((u) => ({
+            id: u.id ?? u.userId,
+            name: [u.fullname, u.lastname].filter(Boolean).join(" ") || u.email,
+            email: u.email,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.email}`,
+            joinedDate: u.createdAt
+              ? new Date(u.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+              : "—",
+            orderCount: u.orderCount ?? 0,
+            totalSpent: Number(u.totalSpent) || 0,
+            role: u.role || "CUSTOMER",
+          }));
+          setCustomers(normalized);
+        }
+      })
+      .catch((err) => console.error("Failed to load customers:", err))
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const filtered = customers.filter(
     (c) =>
@@ -33,49 +62,69 @@ export default function Customers() {
       <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
           <h3 className="font-extrabold text-stone-900 tracking-tight">Customers</h3>
-          <span className="text-xs text-stone-500 font-medium">{filtered.length} customers</span>
+          <span className="text-xs text-stone-500 font-medium">
+            {loading ? "Loading…" : `${filtered.length} customers`}
+          </span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-stone-50 border-b border-stone-100 text-left">
-                <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Customer</th>
-                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Email</th>
-                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Joined</th>
-                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Orders</th>
-                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Total Spent</th>
-                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c, i) => (
-                <tr key={c.id} className={`border-b border-stone-50 hover:bg-stone-50 transition-colors ${i % 2 !== 0 ? "bg-stone-50/40" : ""}`}>
-                  <td className="px-6 py-3">
-                    <div className="flex items-center gap-3">
-                      <img src={c.avatar} alt={c.name} className="w-8 h-8 rounded-full bg-stone-100 flex-shrink-0" />
-                      <span className="font-semibold text-stone-900">{c.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-stone-500">{c.email}</td>
-                  <td className="px-4 py-3 text-stone-500 text-xs">{c.joinedDate}</td>
-                  <td className="px-4 py-3 text-stone-700 font-semibold">{c.orderCount}</td>
-                  <td className="px-4 py-3 font-bold text-stone-900">${c.totalSpent.toFixed(2)}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => setViewCustomer(c)}
-                      className="text-xs font-semibold text-stone-600 hover:text-stone-900 border border-stone-200 px-2.5 py-1 rounded-lg hover:bg-stone-50 transition-colors"
-                    >
-                      View Orders
-                    </button>
-                  </td>
+
+        {loading ? (
+          <div className="px-6 py-12 text-center">
+            <div className="inline-block w-6 h-6 border-2 border-stone-300 border-t-stone-900 rounded-full animate-spin" />
+            <p className="text-sm text-stone-400 mt-3">Loading customers…</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-stone-50 border-b border-stone-100 text-left">
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Customer</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Email</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Role</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Joined</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Orders</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Total Spent</th>
+                  <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500">Actions</th>
                 </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-stone-400 text-sm">No customers found.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((c, i) => (
+                  <tr key={c.id} className={`border-b border-stone-50 hover:bg-stone-50 transition-colors ${i % 2 !== 0 ? "bg-stone-50/40" : ""}`}>
+                    <td className="px-6 py-3">
+                      <div className="flex items-center gap-3">
+                        <img src={c.avatar} alt={c.name} className="w-8 h-8 rounded-full bg-stone-100 flex-shrink-0" />
+                        <span className="font-semibold text-stone-900">{c.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-stone-500">{c.email}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                        c.role === "ADMIN"
+                          ? "bg-violet-100 text-violet-700"
+                          : "bg-stone-100 text-stone-600"
+                      }`}>
+                        {c.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-stone-500 text-xs">{c.joinedDate}</td>
+                    <td className="px-4 py-3 text-stone-700 font-semibold">{c.orderCount}</td>
+                    <td className="px-4 py-3 font-bold text-stone-900">${c.totalSpent.toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setViewCustomer(c)}
+                        className="text-xs font-semibold text-stone-600 hover:text-stone-900 border border-stone-200 px-2.5 py-1 rounded-lg hover:bg-stone-50 transition-colors"
+                      >
+                        View Orders
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr><td colSpan={7} className="px-6 py-12 text-center text-stone-400 text-sm">No customers found.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Customer Order History Modal */}

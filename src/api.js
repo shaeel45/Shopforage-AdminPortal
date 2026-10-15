@@ -25,6 +25,9 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      window.dispatchEvent(new Event("shopforge:admin:logout"));
+    }
     const message = Array.isArray(data?.message)
       ? data.message.join(", ")
       : data?.message || data || `Request failed (${response.status})`;
@@ -78,4 +81,14 @@ export function resolveProductImage(imageURL) {
   if (!imageURL) return "";
   if (/^https?:\/\//i.test(imageURL)) return imageURL;
   return `${API_URL}${imageURL.startsWith("/") ? "" : "/"}${imageURL}`;
+}
+
+export async function fetchCustomers() {
+  const data = await request("/users");
+  return Array.isArray(data) ? data : data?.data || [];
+}
+
+export function onAdminLogout(callback) {
+  window.addEventListener("shopforge:admin:logout", callback);
+  return () => window.removeEventListener("shopforge:admin:logout", callback);
 }

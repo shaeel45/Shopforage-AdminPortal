@@ -352,6 +352,11 @@ export default function Products() {
                 onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
                 className={fieldClass}
               />
+              {key === "stock" && (
+                <p className="mt-1 text-xs text-stone-400">
+                  Stock changes are recorded in the inventory audit history.
+                </p>
+              )}
             </div>
           ))}
 

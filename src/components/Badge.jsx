@@ -8,6 +8,7 @@ const STATUS_CONFIG = {
   delivered:  { label: "Delivered",  bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200"},
   cancelled:  { label: "Cancelled",  bg: "bg-red-50",     text: "text-red-700",     border: "border-red-200"    },
   // Stock levels
+  out:        { label: "Out of Stock", bg: "bg-stone-900", text: "text-white",      border: "border-stone-900"  },
   low:        { label: "Low Stock",  bg: "bg-red-50",     text: "text-red-700",     border: "border-red-200"    },
   medium:     { label: "Medium",     bg: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-200"  },
   high:       { label: "In Stock",   bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200"},

@@ -77,6 +77,77 @@ export function deleteProduct(id) {
   return request(`/products/${id}`, { method: "DELETE" });
 }
 
+/**
+ * Compare every product's stock cache with the inventory service and
+ * optionally repair drift. payload: { fix: true }
+ */
+export function reconcileStock(payload = { fix: true }) {
+  return request("/products/reconcile-stock", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchInventory(params = {}) {
+  const search = new URLSearchParams(params).toString();
+  const res = await request(`/inventory${search ? `?${search}` : ""}`);
+  return Array.isArray(res) ? res : res?.data || [];
+}
+
+export function createInventory(data) {
+  return request("/inventory", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateInventory(id, data) {
+  return request(`/inventory/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Atomic stock adjustment with audit trail.
+ * payload: { productId, changeAmount, type, performedBy, reason, referenceId }
+ */
+export function adjustStock(payload) {
+  return request("/inventory/adjust-stock", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function reserveStock(payload) {
+  return request("/inventory/reserve", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function releaseStock(payload) {
+  return request("/inventory/release", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchInventoryTransactions(id, params = {}) {
+  const search = new URLSearchParams(params).toString();
+  const res = await request(
+    `/inventory/${id}/transactions${search ? `?${search}` : ""}`
+  );
+  if (Array.isArray(res)) {
+    return { data: res, total: res.length, page: 1, limit: res.length, totalPages: 1 };
+  }
+  return res || { data: [], total: 0, page: 1, limit: 20, totalPages: 1 };
+}
+
+export function deleteInventory(id) {
+  return request(`/inventory/${id}`, { method: "DELETE" });
+}
+
 export function resolveProductImage(imageURL) {
   if (!imageURL) return "";
   if (/^https?:\/\//i.test(imageURL)) return imageURL;

@@ -1,14 +1,100 @@
-import React from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import StatCard from "../components/StatCard";
 import Badge from "../components/Badge";
-import { analytics, orders, products } from "../data/adminData";
+import { analytics, orders } from "../data/adminData";
+import { fetchInventory, fetchProducts, resolveProductImage } from "../api";
 
 const maxRevenue = Math.max(...analytics.monthlySales.map((m) => m.revenue));
 
 export default function Dashboard() {
+  const [products, setProducts] = useState([]);
+  const [inventory, setInventory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [productList, inventoryList] = await Promise.all([
+        fetchProducts({ all: "true" }),
+        fetchInventory({ all: "true" }),
+      ]);
+      setProducts(Array.isArray(productList) ? productList : []);
+      setInventory(Array.isArray(inventoryList) ? inventoryList : []);
+      setError("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      fetchProducts({ all: "true" }),
+      fetchInventory({ all: "true" }),
+    ])
+      .then(([productList, inventoryList]) => {
+        if (!active) return;
+        setProducts(Array.isArray(productList) ? productList : []);
+        setInventory(Array.isArray(inventoryList) ? inventoryList : []);
+        setError("");
+      })
+      .catch((err) => {
+        if (active) setError(err.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const productMap = useMemo(() => {
+    const map = {};
+    products.forEach((product) => {
+      map[String(product.id)] = product;
+    });
+    return map;
+  }, [products]);
+
+  const stockRows = useMemo(
+    () =>
+      inventory.map((item) => {
+        const product = productMap[String(item.productId)];
+        const imageURL = product?.imageURL || product?.image || "";
+        return {
+          id: item.id,
+          productId: item.productId,
+          name: product?.name || `Product #${item.productId}`,
+          category: product?.category || "—",
+          image: imageURL ? resolveProductImage(imageURL) : "",
+          quantity: Number(item.quantity) || 0,
+          threshold: Number(item.lowStockThreshold) || 0,
+        };
+      }),
+    [inventory, productMap]
+  );
+
+  const lowStockRows = useMemo(
+    () =>
+      stockRows
+        .filter((row) => row.quantity <= row.threshold)
+        .sort((a, b) => a.quantity - b.quantity),
+    [stockRows]
+  );
+
+  const outCount = useMemo(
+    () => stockRows.filter((row) => row.quantity <= 0).length,
+    [stockRows]
+  );
+
+  const lowCount = lowStockRows.length;
   const recentOrders = [...orders].slice(0, 8);
-  const lowStockProducts = products.filter((p) => p.stock < 25).slice(0, 5);
 
   return (
     <div className="space-y-8">
@@ -22,8 +108,13 @@ export default function Dashboard() {
           icon="💰"
         />
         <StatCard label="Total Orders" value={analytics.totalOrders} change={analytics.ordersGrowth} icon="📦" />
-        <StatCard label="Products" value={analytics.totalProducts} icon="👕" />
-        <StatCard label="Customers" value={analytics.totalCustomers} change={analytics.customersGrowth} icon="👥" />
+        <StatCard label="Products" value={products.length} icon="👕" />
+        <StatCard
+          label="Low Stock"
+          value={loading ? "…" : lowCount}
+          suffix={loading ? "" : outCount > 0 ? ` · ${outCount} out` : ""}
+          icon="⚠️"
+        />
       </div>
 
       {/* Charts + Low Stock row */}
@@ -112,26 +203,54 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Low Stock Alerts */}
+        {/* Low Stock Alerts — live inventory data */}
         <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
-            <h3 className="text-base font-extrabold text-stone-900 tracking-tight">⚠️ Low Stock</h3>
+            <div>
+              <h3 className="text-base font-extrabold text-stone-900 tracking-tight">⚠️ Low Stock</h3>
+              {!loading && !error && (
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {lowCount} low · {outCount} out of stock
+                </p>
+              )}
+            </div>
             <Link to="/inventory" className="text-xs font-semibold text-stone-600 hover:text-stone-900 underline underline-offset-2 transition">
               Manage →
             </Link>
           </div>
-          <div className="divide-y divide-stone-50">
-            {lowStockProducts.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 px-6 py-3 hover:bg-stone-50 transition-colors">
-                <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover bg-stone-100 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-stone-900 truncate">{p.name}</p>
-                  <p className="text-xs text-stone-500 capitalize">{p.category}</p>
+
+          {error ? (
+            <div className="px-6 py-6 text-sm text-red-700 bg-red-50">
+              <p>Could not load inventory: {error}</p>
+              <button onClick={load} className="mt-2 font-bold underline">Retry</button>
+            </div>
+          ) : loading ? (
+            <div className="px-6 py-10 text-center text-sm text-stone-400">Loading inventory…</div>
+          ) : lowStockRows.length === 0 ? (
+            <div className="px-6 py-10 text-center text-sm text-stone-400">
+              Every tracked product is above its low-stock threshold.
+            </div>
+          ) : (
+            <div className="divide-y divide-stone-50">
+              {lowStockRows.slice(0, 5).map((row) => (
+                <div key={row.id} className="flex items-center gap-3 px-6 py-3 hover:bg-stone-50 transition-colors">
+                  {row.image ? (
+                    <img src={row.image} alt={row.name} className="w-10 h-10 rounded-lg object-cover bg-stone-100 flex-shrink-0" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-stone-100 flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-stone-900 truncate">{row.name}</p>
+                    <p className="text-xs text-stone-500 capitalize">{row.category}</p>
+                  </div>
+                  <Badge
+                    type={row.quantity <= 0 ? "out" : "low"}
+                    customLabel={`${row.quantity} left`}
+                  />
                 </div>
-                <Badge type={p.stock < 20 ? "low" : "medium"} customLabel={`${p.stock} left`} />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

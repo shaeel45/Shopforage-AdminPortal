@@ -208,6 +208,56 @@ export async function fetchPromoCodeRedemptions(id, params = {}) {
   );
 }
 
+const EMPTY_ORDER_STATS = {
+  total: 0,
+  pending: 0,
+  processing: 0,
+  shipped: 0,
+  delivered: 0,
+  cancelled: 0,
+  revenue: 0,
+};
+
+export async function fetchOrders(params = {}) {
+  const search = new URLSearchParams(params).toString();
+  const res = await request(`/orders${search ? `?${search}` : ""}`);
+  if (Array.isArray(res)) {
+    return {
+      data: res,
+      total: res.length,
+      page: 1,
+      limit: res.length,
+      totalPages: 1,
+      stats: { ...EMPTY_ORDER_STATS, total: res.length },
+    };
+  }
+  return (
+    res || {
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+      stats: EMPTY_ORDER_STATS,
+    }
+  );
+}
+
+export function fetchOrder(id) {
+  return request(`/orders/${id}`);
+}
+
+export function updateOrderStatus(id, status, note) {
+  return request(`/orders/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(note ? { status, note } : { status }),
+  });
+}
+
+export function fetchOrderEvents(id) {
+  return request(`/orders/${id}/events`);
+}
+
 export function resolveProductImage(imageURL) {
   if (!imageURL) return "";
   if (/^https?:\/\//i.test(imageURL)) return imageURL;

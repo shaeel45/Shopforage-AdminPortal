@@ -148,6 +148,66 @@ export function deleteInventory(id) {
   return request(`/inventory/${id}`, { method: "DELETE" });
 }
 
+export async function fetchPromoCodes(params = {}) {
+  const search = new URLSearchParams(params).toString();
+  const res = await request(`/promocodes${search ? `?${search}` : ""}`);
+  if (Array.isArray(res)) {
+    return {
+      data: res,
+      total: res.length,
+      page: 1,
+      limit: res.length,
+      totalPages: 1,
+      stats: { total: res.length, active: 0, inactive: 0 },
+    };
+  }
+  return (
+    res || {
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+      stats: { total: 0, active: 0, inactive: 0 },
+    }
+  );
+}
+
+export function createPromoCode(data) {
+  return request("/promocodes", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updatePromoCode(id, data) {
+  return request(`/promocodes/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export function setPromoCodeActive(id, active) {
+  return request(`/promocodes/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ active }),
+  });
+}
+
+export function deletePromoCode(id) {
+  return request(`/promocodes/${id}`, { method: "DELETE" });
+}
+
+export async function fetchPromoCodeRedemptions(id, params = {}) {
+  const search = new URLSearchParams(params).toString();
+  const res = await request(
+    `/promocodes/${id}/redemptions${search ? `?${search}` : ""}`
+  );
+  return (
+    res || { data: [], total: 0, page: 1, limit: 20, totalPages: 1 }
+  );
+}
+
 export function resolveProductImage(imageURL) {
   if (!imageURL) return "";
   if (/^https?:\/\//i.test(imageURL)) return imageURL;

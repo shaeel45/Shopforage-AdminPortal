@@ -12,7 +12,7 @@ export default function Customers() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    // `loading` already starts as true, so no synchronous setState is needed here.
     fetchCustomers()
       .then((data) => {
         if (!cancelled) {
